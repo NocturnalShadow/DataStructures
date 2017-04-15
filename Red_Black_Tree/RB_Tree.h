@@ -90,7 +90,7 @@ public:
 		{
 			if (this->isLeftChild()) {
 				parent->left = nullptr;
-			} else {
+			} else if (this->isRightChild()) {
 				parent->right = nullptr;
 			}
 		}
@@ -147,9 +147,11 @@ private:
 		} else {
 			parent->right = node;
 		}
-		
+
+		node->parent = parent;
 		this->left = nullptr;
 		this->right = nullptr;
+		this->parent = nullptr;
 	}
 };
 
@@ -305,10 +307,13 @@ inline NodePtr<K,T> RB_Tree<K,T>::Find(const K& key)
 template<typename K, typename T>
 inline void RB_Tree<K,T>::InsertNode(Node* node, Node*& _root, Node* root_parent)
 {
-	if (_root == nullptr) {
+	if (_root == nullptr) 
+	{
 		_root = node;
 		_root->parent = root_parent;
-	} else {
+	} 
+	else
+	{
 		if (node->isGreaterThen(_root)) {
 			InsertNode(node, _root->right, _root);
 		} else {
