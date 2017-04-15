@@ -1,32 +1,42 @@
-//************************************************************************
-//								<Red-Black Tree>		
-//************************************************************************
+//*******************************************************************************
+//								< Red-Black Tree >		
+//*******************************************************************************
+// Type:		Balanced Binary-Search tree
+// Purpose:		Map data structure
+// Name:		Red-Black tree
+// Implementation details:
+//		> Implemented without "phantom" leaves.
+//
+//											Code written by NocturnalShadow.
+//*******************************************************************************
 
 #pragma once
 
-template<typename T>
+template<typename K, typename T>
 class RB_Tree
 {
 public:
-	enum Color { RED, BLACK };
-	struct Node;
+	class Node;
+	enum class Color { RED, BLACK };
 
 private:
 	Node* root;
 
 public:
-	RB_Tree()
-	{
-	}
-
-	~RB_Tree()
-	{
-		delete root;
-	}
+	RB_Tree()	
+		{	}
+	~RB_Tree()	
+		{ delete root; }
 
 public:
-	void Insert(const T& key);
-	void Erase(const T& key);
+	RB_Tree(const RB_Tree& tree)			= delete;
+	RB_Tree& operator=(const RB_Tree& tree) = delete;
+
+public:
+	void Insert(const K& key, const T& data);
+	void Erase(const K& key);
+
+	Node* Find(const K& key);
 
 private:
 	Node* GrandFather(Node* node);
@@ -37,8 +47,7 @@ private:
 	void RotateRight(Node* pivot);
 
 	void InsertNode(Node* node, Node*& _root, Node* root_parent = nullptr);
-	void EraseLeaf(Node* leaf);
-
+	
 	void InsertCase1(Node* node);
 	void InsertCase2(Node* node);
 	void InsertCase3(Node* node);
@@ -47,7 +56,7 @@ private:
 
 	Node* MinNode(Node* _root);
 	Node* MaxNode(Node* _root);
-	Node* Find(const T& key, Node* _root);
+	Node* Find(const K& key, Node* _root);
 
 	void DeleteCase1(Node* node);
 	void DeleteCase2(Node* node);
@@ -57,34 +66,50 @@ private:
 	void DeleteCase6(Node* node);
 };
 
-template<typename T>
-struct RB_Tree<T>::Node
+template<typename K, typename T>
+class RB_Tree<K,T>::Node
 {
-	T key;
-	Color color = RED;
+	friend class RB_Tree<K,T>;
+private:
+	K key;
+	T* data			= nullptr;
+	Color color		= Color::RED;
 
 	Node* parent	= nullptr;
 	Node* left		= nullptr;
 	Node* right		= nullptr;
 
 public:
-	Node(const T& _key)
-		: key{ _key }
+	Node(const K& _key, const T& _data)
+		: key{ _key }, data{ new T(_data) }
 	{
 	}
 	~Node()
 	{
+		if (parent) 
+		{
+			if (this->isLeftChild()) {
+				parent->left = nullptr;
+			} else {
+				parent->right = nullptr;
+			}
+		}
 		delete left;
 		delete right;
+		delete data;
 	}
+
+public:
+	Node(const Node& node)				= delete;
+	Node& operator=(const Node& node)	= delete;
 
 public:
 	bool isRoot() const 
 		{ return parent == nullptr;	}
 	bool isRed() const
-		{ return color == RED; }
+		{ return color == Color::RED; }
 	bool isBlack() const
-		{ return color == BLACK; }
+		{ return color == Color::BLACK; }
 	bool isLeaf() const
 		{ return !left && !right; }
 	bool isLeftChild() const
@@ -101,15 +126,22 @@ public:
 	bool isLessThen(Node* node) 
 		{ return this->key < node->key;	}
 
-	void toRed()	{ color = RED;	 }
-	void toBlack()	{ color = BLACK; }
+	const K& Key() const 
+		{ return key; }
+	T& Data()
+		{ return *data; }
+
+private:
+	void toRed()	{ color = Color::RED;	 }
+	void toBlack()	{ color = Color::BLACK; }
 
 	void PlaceTo(Node* node)
 	{
 		node->key = key;
 	}
-	void ReplaceWith(Node* node)
+	void ReplaceIfNotNull(Node* node)
 	{
+		if (node == nullptr) { return; }
 		if (this->isLeftChild()) {
 			parent->left = node;
 		} else {
@@ -119,14 +151,14 @@ public:
 		this->left = nullptr;
 		this->right = nullptr;
 	}
-
 };
 
-template<typename T> 
-using NodePtr = typename RB_Tree<T>::Node*;
 
-template<typename T>
-inline NodePtr<T> RB_Tree<T>::GrandFather(Node* node)
+template<typename K, typename T> 
+using NodePtr = typename RB_Tree<K,T>::Node*;
+
+template<typename K, typename T>
+inline NodePtr<K,T> RB_Tree<K,T>::GrandFather(Node* node)
 {
 	if (node && node->parent) {
 		return node->parent->parent;
@@ -135,8 +167,8 @@ inline NodePtr<T> RB_Tree<T>::GrandFather(Node* node)
 	}
 };
 
-template<typename T>
-inline NodePtr<T> RB_Tree<T>::Uncle(Node* node)
+template<typename K, typename T>
+inline NodePtr<K,T> RB_Tree<K,T>::Uncle(Node* node)
 {
 	Node* grandFather = GrandFather(node);
 	if (grandFather == nullptr) { return nullptr; }
@@ -147,8 +179,8 @@ inline NodePtr<T> RB_Tree<T>::Uncle(Node* node)
 	}
 }
 
-template<typename T>
-inline NodePtr<T> RB_Tree<T>::Brother(Node* node)
+template<typename K, typename T>
+inline NodePtr<K,T> RB_Tree<K,T>::Brother(Node* node)
 {
 	if (!node || !node->parent) {
 		return nullptr;
@@ -160,8 +192,8 @@ inline NodePtr<T> RB_Tree<T>::Brother(Node* node)
 	}
 }
 
-template<typename T>
-inline void RB_Tree<T>::RotateLeft(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::RotateLeft(Node* node)
 {
 	Node* pivot = node->right;
 
@@ -186,8 +218,8 @@ inline void RB_Tree<T>::RotateLeft(Node* node)
 	pivot->left = node;
 }
 
-template<typename T>
-inline void RB_Tree<T>::RotateRight(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::RotateRight(Node* node)
 {
 	Node* pivot = node->left;
 
@@ -212,24 +244,23 @@ inline void RB_Tree<T>::RotateRight(Node* node)
 	pivot->right = node;
 }
 
-template<typename T>
-inline void RB_Tree<T>::Insert(const T& key)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::Insert(const K& key, const T& data)
 {
-	Node* node = new Node(key);
+	Node* node = new Node(key, data);
 	InsertNode(node, root);
 	InsertCase1(node);
 }
 
-template<typename T>
-inline void RB_Tree<T>::Erase(const T& key)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::Erase(const K& key)
 {
 	Node* target = Find(key, root);
 
 	// key was not found
 	if (!target) { return; }
 
-	// complications
-	// if target is a leaf 
+	// case if target is a leaf node
 	if (target->isLeaf())
 	{
 		if (target->isBlack()) {
@@ -237,42 +268,26 @@ inline void RB_Tree<T>::Erase(const T& key)
 		}
 		if (target->isRoot()) {
 			root = nullptr;
-		} else if (target->isRightChild()) {
-			target->parent->right = nullptr;
-		} else {
-			target->parent->left = nullptr;
-		}
+		} 
 		delete target;
 		return;
 	}
 
+	// a node to replace target with
 	Node* node =
 		target->hasRightChild() ? MinNode(target->right) : MaxNode(target->left);
-
+	// the only child of the replacement node (may be nullptr if no children)
 	Node* child =
 		node->hasLeftChild() ? node->left : node->right;
-
+	
 	node->PlaceTo(target);
-	node->ReplaceWith(child);
+	node->ReplaceIfNotNull(child);
 
 	if (node->isBlack())
 	{
-		if (child == nullptr) 
-		{
-			// complications
-			if (node->parent->hasRightChild()) 
-			{
-				node->parent->left = node;
-				DeleteCase1(node);
-				node->parent->left = nullptr;
-			} 
-			else {
-				node->parent->right = node;
-				DeleteCase1(node);
-				node->parent->right = nullptr;
-			}
-		} 
-		else if (child->isRed()) {
+		if (child == nullptr) {
+			DeleteCase1(node);
+		} else if (child->isRed()) {
 			child->toBlack();
 		} else {
 			DeleteCase1(child);
@@ -281,8 +296,14 @@ inline void RB_Tree<T>::Erase(const T& key)
 	delete node;
 }
 
-template<typename T>
-inline void RB_Tree<T>::InsertNode(Node* node, Node*& _root, Node* root_parent)
+template<typename K, typename T>
+inline NodePtr<K,T> RB_Tree<K,T>::Find(const K& key)
+{
+	return Find(key, root);
+}
+
+template<typename K, typename T>
+inline void RB_Tree<K,T>::InsertNode(Node* node, Node*& _root, Node* root_parent)
 {
 	if (_root == nullptr) {
 		_root = node;
@@ -296,48 +317,35 @@ inline void RB_Tree<T>::InsertNode(Node* node, Node*& _root, Node* root_parent)
 	}
 }
 
-template<typename T>
-inline void RB_Tree<T>::EraseLeaf(Node* leaf)
-{
-	if (leaf->isRoot()) {
-		root = nullptr;
-	} else if (leaf->isLeftChild()) {
-		leaf->parent->left = nullptr;
-	} else {
-		leaf->parent->right = nullptr;
-	}
-	delete leaf;
-}
-
-template<typename T>
-inline void RB_Tree<T>::InsertCase1(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::InsertCase1(Node* node)
 {
 	if (node->isRoot()) {
-		node->color = BLACK;
+		node->toBlack();
 	} else {
 		InsertCase2(node);
 	}
 }
 
-template<typename T>
-inline void RB_Tree<T>::InsertCase2(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::InsertCase2(Node* node)
 {
 	if (!node->parent->isBlack()) {
 		InsertCase3(node);
 	}
 }
 
-template<typename T>
-inline void RB_Tree<T>::InsertCase3(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::InsertCase3(Node* node)
 {
 	Node* uncle = Uncle(node);
 	Node* grand_father = GrandFather(node);
 
 	if (uncle && uncle->isRed()) 
 	{
-		node->parent->color = BLACK;
-		uncle->color = BLACK;
-		grand_father->color = RED;
+		node->parent->toBlack();
+		uncle->toBlack();
+		grand_father->toRed();
 		InsertCase1(grand_father);
 	}
 	else {
@@ -345,8 +353,8 @@ inline void RB_Tree<T>::InsertCase3(Node* node)
 	}
 }
 
-template<typename T>
-inline void RB_Tree<T>::InsertCase4(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::InsertCase4(Node* node)
 {
 	Node* grand_father = GrandFather(node);
 	Node* parent = node->parent;
@@ -364,14 +372,14 @@ inline void RB_Tree<T>::InsertCase4(Node* node)
 	InsertCase5(node);
 }
 
-template<typename T>
-inline void RB_Tree<T>::InsertCase5(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::InsertCase5(Node* node)
 {
 	Node* grand_father = GrandFather(node);
 	Node* parent = node->parent;
 
-	parent->color = BLACK;
-	grand_father->color = RED;
+	parent->toBlack();
+	grand_father->toRed();
 	if (node->isLeftChild()) {
 		RotateRight(grand_father);
 	} else {
@@ -379,8 +387,8 @@ inline void RB_Tree<T>::InsertCase5(Node* node)
 	}
 }
 
-template<typename T>
-inline NodePtr<T> RB_Tree<T>::MinNode(Node* _root)
+template<typename K, typename T>
+inline NodePtr<K,T> RB_Tree<K,T>::MinNode(Node* _root)
 {
 	if (_root != nullptr) 
 	{
@@ -391,8 +399,8 @@ inline NodePtr<T> RB_Tree<T>::MinNode(Node* _root)
 	return _root;
 }
 
-template<typename T>
-inline NodePtr<T> RB_Tree<T>::MaxNode(Node * _root)
+template<typename K, typename T>
+inline NodePtr<K,T> RB_Tree<K,T>::MaxNode(Node* _root)
 {
 	if (_root != nullptr)
 	{
@@ -403,8 +411,8 @@ inline NodePtr<T> RB_Tree<T>::MaxNode(Node * _root)
 	return _root;
 }
 
-template<typename T>
-inline NodePtr<T> RB_Tree<T>::Find(const T& key, Node* _root)
+template<typename K, typename T>
+inline NodePtr<K,T> RB_Tree<K,T>::Find(const K& key, Node* _root)
 {
 	while (_root && _root->key != key)
 	{
@@ -417,16 +425,16 @@ inline NodePtr<T> RB_Tree<T>::Find(const T& key, Node* _root)
 	return _root;
 }
 
-template<typename T>
-inline void RB_Tree<T>::DeleteCase1(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::DeleteCase1(Node* node)
 {
 	if (!node->isRoot()) {
 		DeleteCase2(node);
 	}
 }
 
-template<typename T>
-inline void RB_Tree<T>::DeleteCase2(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::DeleteCase2(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -443,8 +451,8 @@ inline void RB_Tree<T>::DeleteCase2(Node* node)
 	DeleteCase3(node);
 }
 
-template<typename T>
-inline void RB_Tree<T>::DeleteCase3(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::DeleteCase3(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -462,8 +470,8 @@ inline void RB_Tree<T>::DeleteCase3(Node* node)
 	}
 }
 
-template<typename T>
-inline void RB_Tree<T>::DeleteCase4(Node * node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::DeleteCase4(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -482,8 +490,8 @@ inline void RB_Tree<T>::DeleteCase4(Node * node)
 	}
 }
 
-template<typename T>
-inline void RB_Tree<T>::DeleteCase5(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::DeleteCase5(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -515,8 +523,8 @@ inline void RB_Tree<T>::DeleteCase5(Node* node)
 	DeleteCase6(node);
 }
 
-template<typename T>
-inline void RB_Tree<T>::DeleteCase6(Node* node)
+template<typename K, typename T>
+inline void RB_Tree<K,T>::DeleteCase6(Node* node)
 {
 	Node* brother = Brother(node);
 
