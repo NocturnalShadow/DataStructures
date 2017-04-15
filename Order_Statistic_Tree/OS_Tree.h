@@ -1,19 +1,19 @@
-//**************************************************************************************
-//								< Red-Black Tree >		
-//**************************************************************************************
-// Type:		Balanced Binary-Search tree
-// Purpose:		Map data structure
-// Name:		Red-Black tree
+//*****************************************************************************************
+//								< Order Statistic Tree >		
+//*****************************************************************************************
+// Type:		Extended balanced Binary-Search tree
+// Purpose:		Data ordering structure
+// Name:		Order Statistic Tree
 // Implementation details:
-//		> Implemented without "phantom" leaves.
+//		> Extension of Red-Black tree.
 //
 //											Code written by NocturnalShadow.
-//**************************************************************************************
+//*****************************************************************************************
 
 #pragma once
 
 template<typename K, typename T>
-class RB_Tree
+class OS_Tree
 {
 public:
 	class Node;
@@ -23,20 +23,21 @@ private:
 	Node* root;
 
 public:
-	RB_Tree()	
+	OS_Tree()	
 		{	}
-	~RB_Tree()	
+	~OS_Tree()	
 		{ delete root; }
 
 public:
-	RB_Tree(const RB_Tree& tree)			= delete;
-	RB_Tree& operator=(const RB_Tree& tree) = delete;
+	OS_Tree(const OS_Tree& tree)			= delete;
+	OS_Tree& operator=(const OS_Tree& tree) = delete;
 
 public:
 	void Insert(const K& key, const T& data);
 	void Erase(const K& key);
 
 	Node* Find(const K& key);
+	Node* FindByRank(Node* _root, int rank);
 
 	Node* Root()
 		{ return root; }
@@ -73,13 +74,14 @@ private:
 };
 
 template<typename K, typename T>
-class RB_Tree<K,T>::Node
+class OS_Tree<K,T>::Node
 {
-	friend class RB_Tree<K,T>;
+	friend class OS_Tree<K,T>;
 private:
 	K key;
 	T* data			= nullptr;
 	Color color		= Color::RED;
+	unsigned size	= 1;
 
 	Node* parent	= nullptr;
 	Node* left		= nullptr;
@@ -92,14 +94,22 @@ public:
 	}
 	~Node()
 	{
-		if (parent) 
+		if (parent)
 		{
 			if (this->isLeftChild()) {
 				parent->left = nullptr;
-			} else if (this->isRightChild()) {
+			}
+			else if (this->isRightChild()) {
 				parent->right = nullptr;
 			}
+
+			while (parent != nullptr)
+			{
+				parent->size--;
+				parent = parent->parent;
+			}
 		}
+
 		delete left;
 		delete right;
 		delete data;
@@ -136,21 +146,31 @@ public:
 		{ return key; }
 	T& Data()
 		{ return *data; }
+	unsigned Size() const 
+		{ return size; }
+	unsigned LeftSize() const
+		{ return hasLeftChild() ? left->size : 0; }
+	unsigned RightSize() const
+		{ return hasRightChild() ? right->size : 0; }
+	int Rank() const;
 
 private:
 	void toRed()	{ color = Color::RED;	 }
 	void toBlack()	{ color = Color::BLACK; }
 
-	void PlaceTo(Node* node)
+	void MoveTo(Node* node)
 	{
 		node->key = key;
+		node->data = data;
+		data = nullptr;
 	}
 	void ReplaceIfNotNull(Node* node)
 	{
 		if (node == nullptr) { return; }
 		if (this->isLeftChild()) {
 			parent->left = node;
-		} else {
+		}
+		else {
 			parent->right = node;
 		}
 
@@ -163,10 +183,10 @@ private:
 
 
 template<typename K, typename T> 
-using NodePtr = typename RB_Tree<K,T>::Node*;
+using NodePtr = typename OS_Tree<K,T>::Node*;
 
 template<typename K, typename T>
-inline NodePtr<K,T> RB_Tree<K,T>::GrandFather(Node* node)
+inline NodePtr<K,T> OS_Tree<K,T>::GrandFather(Node* node)
 {
 	if (node && node->parent) {
 		return node->parent->parent;
@@ -176,7 +196,7 @@ inline NodePtr<K,T> RB_Tree<K,T>::GrandFather(Node* node)
 };
 
 template<typename K, typename T>
-inline NodePtr<K,T> RB_Tree<K,T>::Uncle(Node* node)
+inline NodePtr<K,T> OS_Tree<K,T>::Uncle(Node* node)
 {
 	Node* grandFather = GrandFather(node);
 	if (grandFather == nullptr) { return nullptr; }
@@ -188,7 +208,7 @@ inline NodePtr<K,T> RB_Tree<K,T>::Uncle(Node* node)
 }
 
 template<typename K, typename T>
-inline NodePtr<K,T> RB_Tree<K,T>::Brother(Node* node)
+inline NodePtr<K,T> OS_Tree<K,T>::Brother(Node* node)
 {
 	if (!node || !node->parent) {
 		return nullptr;
@@ -201,11 +221,15 @@ inline NodePtr<K,T> RB_Tree<K,T>::Brother(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::RotateLeft(Node* node)
+inline void OS_Tree<K,T>::RotateLeft(Node* node)
 {
 	Node* pivot = node->right;
-
 	pivot->parent = node->parent; 
+
+	// fix up size
+	pivot->size = node->size;
+	node->size = node->LeftSize() + pivot->LeftSize() + 1;
+
 	if (!node->isRoot()) 
 	{
 		if (node->isLeftChild()) {
@@ -227,11 +251,15 @@ inline void RB_Tree<K,T>::RotateLeft(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::RotateRight(Node* node)
+inline void OS_Tree<K,T>::RotateRight(Node* node)
 {
 	Node* pivot = node->left;
-
 	pivot->parent = node->parent; 
+
+	// fix up size
+	pivot->size = node->size;
+	node->size = node->RightSize() + pivot->RightSize() + 1;
+
 	if (!node->isRoot())
 	{
 		if (node->isLeftChild()) {
@@ -253,7 +281,7 @@ inline void RB_Tree<K,T>::RotateRight(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::Insert(const K& key, const T& data)
+inline void OS_Tree<K,T>::Insert(const K& key, const T& data)
 {
 	Node* node = new Node(key, data);
 	InsertNode(node, root);
@@ -261,13 +289,13 @@ inline void RB_Tree<K,T>::Insert(const K& key, const T& data)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::Erase(const K& key)
+inline void OS_Tree<K,T>::Erase(const K& key)
 {
 	Node* target = Find(key, root);
 
 	// key was not found
 	if (!target) { return; }
-
+	 
 	// case if target is a leaf node
 	if (target->isLeaf())
 	{
@@ -288,7 +316,7 @@ inline void RB_Tree<K,T>::Erase(const K& key)
 	Node* child =
 		node->hasLeftChild() ? node->left : node->right;
 	
-	node->PlaceTo(target);
+	node->MoveTo(target);
 	node->ReplaceIfNotNull(child);
 
 	if (node->isBlack())
@@ -305,21 +333,36 @@ inline void RB_Tree<K,T>::Erase(const K& key)
 }
 
 template<typename K, typename T>
-inline NodePtr<K,T> RB_Tree<K,T>::Find(const K& key)
+inline NodePtr<K,T> OS_Tree<K,T>::Find(const K& key)
 {
 	return Find(key, root);
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::InsertNode(Node* node, Node*& _root, Node* root_parent)
+inline NodePtr<K, T> OS_Tree<K, T>::FindByRank(Node* _root, int rank)
 {
-	if (_root == nullptr) 
-	{
+	if (_root == nullptr) {
+		return nullptr;
+	}
+
+	int cur_rank = _root->LeftSize() + 1;
+	if (cur_rank == rank) {
+		return _root;
+	} else if (rank < cur_rank){
+		return FindByRank(_root->left, rank);
+	} else {
+		return FindByRank(_root->right, rank - cur_rank);
+	}
+}
+
+template<typename K, typename T>
+inline void OS_Tree<K,T>::InsertNode(Node* node, Node*& _root, Node* root_parent)
+{
+	if (_root == nullptr) {
 		_root = node;
 		_root->parent = root_parent;
-	} 
-	else
-	{
+	} else {
+		_root->size++;
 		if (node->isGreaterThen(_root)) {
 			InsertNode(node, _root->right, _root);
 		} else {
@@ -329,7 +372,7 @@ inline void RB_Tree<K,T>::InsertNode(Node* node, Node*& _root, Node* root_parent
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::InsertCase1(Node* node)
+inline void OS_Tree<K,T>::InsertCase1(Node* node)
 {
 	if (node->isRoot()) {
 		node->toBlack();
@@ -339,7 +382,7 @@ inline void RB_Tree<K,T>::InsertCase1(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::InsertCase2(Node* node)
+inline void OS_Tree<K,T>::InsertCase2(Node* node)
 {
 	if (!node->parent->isBlack()) {
 		InsertCase3(node);
@@ -347,7 +390,7 @@ inline void RB_Tree<K,T>::InsertCase2(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::InsertCase3(Node* node)
+inline void OS_Tree<K,T>::InsertCase3(Node* node)
 {
 	Node* uncle = Uncle(node);
 	Node* grand_father = GrandFather(node);
@@ -365,7 +408,7 @@ inline void RB_Tree<K,T>::InsertCase3(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::InsertCase4(Node* node)
+inline void OS_Tree<K,T>::InsertCase4(Node* node)
 {
 	Node* grand_father = GrandFather(node);
 	Node* parent = node->parent;
@@ -384,7 +427,7 @@ inline void RB_Tree<K,T>::InsertCase4(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::InsertCase5(Node* node)
+inline void OS_Tree<K,T>::InsertCase5(Node* node)
 {
 	Node* grand_father = GrandFather(node);
 	Node* parent = node->parent;
@@ -399,7 +442,7 @@ inline void RB_Tree<K,T>::InsertCase5(Node* node)
 }
 
 template<typename K, typename T>
-inline NodePtr<K,T> RB_Tree<K,T>::MinNode(Node* _root)
+inline NodePtr<K,T> OS_Tree<K,T>::MinNode(Node* _root)
 {
 	if (_root != nullptr) 
 	{
@@ -411,7 +454,7 @@ inline NodePtr<K,T> RB_Tree<K,T>::MinNode(Node* _root)
 }
 
 template<typename K, typename T>
-inline NodePtr<K,T> RB_Tree<K,T>::MaxNode(Node* _root)
+inline NodePtr<K,T> OS_Tree<K,T>::MaxNode(Node* _root)
 {
 	if (_root != nullptr)
 	{
@@ -423,7 +466,7 @@ inline NodePtr<K,T> RB_Tree<K,T>::MaxNode(Node* _root)
 }
 
 template<typename K, typename T>
-inline NodePtr<K,T> RB_Tree<K,T>::Find(const K& key, Node* _root)
+inline NodePtr<K,T> OS_Tree<K,T>::Find(const K& key, Node* _root)
 {
 	while (_root && _root->key != key)
 	{
@@ -437,7 +480,7 @@ inline NodePtr<K,T> RB_Tree<K,T>::Find(const K& key, Node* _root)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::DeleteCase1(Node* node)
+inline void OS_Tree<K,T>::DeleteCase1(Node* node)
 {
 	if (!node->isRoot()) {
 		DeleteCase2(node);
@@ -445,7 +488,7 @@ inline void RB_Tree<K,T>::DeleteCase1(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::DeleteCase2(Node* node)
+inline void OS_Tree<K,T>::DeleteCase2(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -463,7 +506,7 @@ inline void RB_Tree<K,T>::DeleteCase2(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::DeleteCase3(Node* node)
+inline void OS_Tree<K,T>::DeleteCase3(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -482,7 +525,7 @@ inline void RB_Tree<K,T>::DeleteCase3(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::DeleteCase4(Node* node)
+inline void OS_Tree<K,T>::DeleteCase4(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -502,7 +545,7 @@ inline void RB_Tree<K,T>::DeleteCase4(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::DeleteCase5(Node* node)
+inline void OS_Tree<K,T>::DeleteCase5(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -535,7 +578,7 @@ inline void RB_Tree<K,T>::DeleteCase5(Node* node)
 }
 
 template<typename K, typename T>
-inline void RB_Tree<K,T>::DeleteCase6(Node* node)
+inline void OS_Tree<K,T>::DeleteCase6(Node* node)
 {
 	Node* brother = Brother(node);
 
@@ -555,8 +598,23 @@ inline void RB_Tree<K,T>::DeleteCase6(Node* node)
 }
 
 template<typename K, typename T>
+inline int OS_Tree<K, T>::Node::Rank() const
+{
+	const Node* current = this;
+	int rank = current->LeftSize() + 1;
+	while (!current->isRoot())
+	{
+		if(current->isRightChild()) {
+			rank += current->parent->LeftSize() + 1;
+		}
+		current = current->parent;
+	}
+	return rank;
+}
+
+template<typename K, typename T>
 template<typename Func>
-inline void RB_Tree<K, T>::InOrder(Node* _root, Func func)
+inline void OS_Tree<K, T>::InOrder(Node* _root, Func func)
 {
 	if (_root != nullptr)
 	{
