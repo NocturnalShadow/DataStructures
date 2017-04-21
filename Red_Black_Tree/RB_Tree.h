@@ -20,7 +20,7 @@ public:
 	enum class Color { RED, BLACK };
 
 private:
-	Node* root;
+	Node* root 	= nullptr;
 
 public:
 	RB_Tree()	
